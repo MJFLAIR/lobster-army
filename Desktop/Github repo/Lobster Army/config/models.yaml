@@ -1,0 +1,29 @@
+models:
+  pm:
+    primary: "gemini-1.5-flash"
+    daily_budget_usd: 0.10
+    per_task_budget_usd: 0.05
+
+  code:
+    primary: "gpt-4o-mini"
+    daily_budget_usd: 1.50
+    per_task_budget_usd: 0.30
+
+  review:
+    primary: "gemini-1.5-pro"
+    daily_budget_usd: 0.15
+    per_task_budget_usd: 0.05
+
+escalation_policy:
+  require_human_approval_for:
+    - "upgrade_model"
+    - "increase_budget"
+  review_score_threshold: 90
+  max_attempts_per_subtask: 3
+  max_review_retries: 2
+
+budget_alerts:
+  daily_warning_threshold: 0.80
+  daily_hard_limit: 2.50
+  per_task_warning_threshold: 0.80
+  per_task_hard_limit: 1.00

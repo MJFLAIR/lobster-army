@@ -1,0 +1,15 @@
+timeouts:
+  operation_timeout_seconds: 300
+  llm_timeout_seconds: 300
+  retry_backoff_seconds: [5, 15, 45]
+
+  max_retries:
+    fixable: 3
+    test_error: 1
+    infra_retriable: 3
+
+hard_timeout:
+  status: "FAILED_INFRA"
+  terminal: true
+  no_retry: true
+  message: "Operation exceeded timeout. Split task into smaller subtasks."

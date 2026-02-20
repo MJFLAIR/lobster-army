@@ -1,0 +1,16 @@
+tool_pool:
+  registry_package: "tool_pool"
+  tools:
+    - name: "repo_tree_summary"
+      version: "1.0"
+      entrypoint: "tool_pool.repo_tree_summary:run"
+      required_secrets: []
+      net_policy: "none"
+      timeout_seconds: 10
+
+    - name: "apply_patch"
+      version: "1.0"
+      entrypoint: "tool_pool.apply_patch:run"
+      required_secrets: []
+      net_policy: "none"
+      timeout_seconds: 30

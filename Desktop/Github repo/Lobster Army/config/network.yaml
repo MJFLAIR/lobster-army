@@ -1,0 +1,9 @@
+network:
+  mode: "deny_by_default"
+  allowlist_domains:
+    - "api.openai.com"
+    - "generativelanguage.googleapis.com"
+    - "api.github.com"
+    - "discord.com"
+    - "discordapp.com"
+  notes: "All outbound HTTP must use tools/network_client.py"

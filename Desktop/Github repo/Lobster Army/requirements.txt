@@ -1,0 +1,14 @@
+Flask
+gunicorn
+google-cloud-run
+google-cloud-scheduler
+google-cloud-secret-manager
+google-cloud-logging
+google-cloud-storage
+google-cloud-firestore
+pynacl
+requests
+pytest
+ruff
+types-requests
+types-PyYAML

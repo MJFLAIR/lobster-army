@@ -1,0 +1,38 @@
+api_pool:
+  aliases:
+    openai:
+      secret_name: "openai-key"
+      purpose: "LLM calls"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"
+    gemini:
+      secret_name: "gemini-key"
+      purpose: "LLM calls"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"
+    github_pat:
+      secret_name: "github-pat"
+      purpose: "GitHub repo operations"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"
+    discord_public_key:
+      secret_name: "discord-public-key"
+      purpose: "Verify Discord interactions (Ed25519)"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"
+    discord_webhook_url:
+      secret_name: "discord-webhook-url"
+      purpose: "Post results to Discord"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"
+    ide_relay_token:
+      secret_name: "ide-relay-token"
+      purpose: "Authenticate IDE relay to Gateway"
+      scope: "prod"
+      owner: "user"
+      rotation: "manual"

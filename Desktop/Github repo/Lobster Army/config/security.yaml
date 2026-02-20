@@ -1,0 +1,27 @@
+security:
+  ast_scan_directories: ["src", "tests"]
+
+  writable_paths:
+    - "src/"
+    - "tests/"
+    - ".lobster/tmp/"
+    - "build/"
+
+  sensitive_deny_patterns:
+    - ".env*"
+    - ".git/hooks/*"
+    - ".github/workflows/*"
+    - "~/.ssh/*"
+    - "~/.aws/*"
+    - "~/.config/*"
+    - "**/credentials*"
+    - "**/secrets*"
+
+  git_ref_patterns:
+    checkout_allowed: "^(task/\\d+)$"
+    merge_allowed: "^task/\\d+$"
+    tag_allowed: "^lobster/task-\\d+/complete$"
+
+  diff_guards:
+    max_files_changed: 20
+    max_total_diff_lines: 2000

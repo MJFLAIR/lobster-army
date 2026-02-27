@@ -119,12 +119,15 @@ def test_network_client(mock_urlopen):
         with pytest.raises(NetworkPolicyError):
             client.request("GET", "https://www.openai.com")
 
-def test_git_client():
+@patch("subprocess.run")
+def test_git_client(mock_run):
     gc = GitClient()
+    mock_run.return_value.stdout = "MOCKED"
+    
     # Should pass validation
-    res = gc.run(["git", "status"])
+    res = gc._run_command(["git", "status"])
     assert "MOCKED" in res
     
     # Should raise error from ToolGate
     with pytest.raises(SecurityError):
-        gc.run(["git", "remote"])
+        gc._run_command(["git", "remote"])

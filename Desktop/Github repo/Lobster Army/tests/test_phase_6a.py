@@ -66,7 +66,7 @@ def test_escalation_policy(MockLLMClass, MockDB_CT, MockDB_TM, mock_task_factory
     # Code returns diff
     # Review returns FAIL
     
-    def side_effect(prompt, system=""):
+    def side_effect(prompt, system="", **kwargs):
         if "Product Manager" in system:
             return {"content": '{"plan": []}'}
         if "Senior Python Engineer" in system:
@@ -97,7 +97,7 @@ def test_successful_cycle(MockLLMClass, MockDB_CT, MockDB_TM, mock_task_factory)
     # Return PASS on first review
     instance = MockLLMClass.return_value
     
-    def side_effect(prompt, system=""):
+    def side_effect(prompt, system="", **kwargs):
         if "Product Manager" in system:
             return {"content": '{"plan": []}'}
         if "Senior Python Engineer" in system:

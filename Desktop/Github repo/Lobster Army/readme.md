@@ -454,6 +454,11 @@ Auth:
 	•	Minimal permissions:
 	•	Contents: Read/Write
 	•	Metadata: Read
+Webhook Setup:
+	•	URL: `https://<gateway-url>/api/webhook/github`
+	•	Content type: `application/json`
+	•	Events: `pull_request` only
+	•	Secret: Configured as `GITHUB_WEBHOOK_SECRET` environment variable
 Merge strategy (no PR required for MVP):
 	•	PM creates task/<id>
 	•	Code commits sequentially

@@ -2,20 +2,6 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-@dataclass
-class Task:
-    task_id: int
-    source: str
-    requester_id: str
-    channel_id: Optional[str] = None
-    description: str = ""
-    status: str = "PENDING"
-    branch_name: Optional[str] = None
-    plan_json: Optional[Dict[str, Any]] = None
-    result_summary: Optional[str] = None
-    cost_json: Optional[Dict[str, Any]] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
 
 @dataclass
 class CommandQueue:

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class LLMAdapter(ABC):
     @abstractmethod
-    def complete(self, prompt: str, system_prompt: str = None) -> Dict[str, Any]:
+    def complete(self, prompt: str, system_prompt: str = None, **kwargs) -> Dict[str, Any]:
         pass
 
 class FakeLLMAdapter(LLMAdapter):
@@ -11,7 +11,7 @@ class FakeLLMAdapter(LLMAdapter):
     Simulates LLM responses for testing/dev without external calls.
     Returns structured data based on keywords in the prompt to simulate different agents.
     """
-    def complete(self, prompt: str, system_prompt: str = None) -> Dict[str, Any]:
+    def complete(self, prompt: str, system_prompt: str = None, **kwargs) -> Dict[str, Any]:
         # Simple keyword matching to determine which agent is calling and what to return
         
         # PM Agent Response

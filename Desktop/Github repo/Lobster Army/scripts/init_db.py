@@ -5,7 +5,7 @@ import os
 sys.path.insert(0, os.getcwd())
 
 from workflows.storage.db import DB
-from workflows.storage.models import Base
+from workflows.models.task import Task
 
 def init_db():
     print("Initializing Database...")

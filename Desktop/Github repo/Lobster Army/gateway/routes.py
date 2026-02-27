@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify
+import time
+from google.cloud import firestore
 from gateway.discord_verify import verify_discord_interaction
 from gateway.outbound import post_async_ack
 from gateway.ide_relay import verify_ide_relay
@@ -23,7 +25,6 @@ def register_routes(app: Flask) -> None:
 
         cmd = InputSanitizer.normalize_discord_payload(payload)
         task_id = DB.create_task_from_command(cmd, source="discord_slash")
-        DB.enqueue_task(task_id)
         return post_async_ack(cmd, task_id)
 
     @app.post("/discord/webhook")
@@ -36,7 +37,6 @@ def register_routes(app: Flask) -> None:
         cmd = InputSanitizer.normalize_webhook_payload(payload)
 
         task_id = DB.create_task_from_command(cmd, source="discord_webhook")
-        DB.enqueue_task(task_id)
         return jsonify({"ok": True, "task_id": task_id})
 
     @app.post("/ide/relay")
@@ -48,5 +48,38 @@ def register_routes(app: Flask) -> None:
         cmd = InputSanitizer.normalize_ide_payload(payload)
 
         task_id = DB.create_task_from_command(cmd, source="ide_chat")
-        DB.enqueue_task(task_id)
+        return jsonify({"ok": True, "task_id": task_id})
+
+    @app.post("/api/webhook/github")
+    def github_webhook():
+        payload = request.get_json(force=True, silent=True) or {}
+        task_id = int(time.time() * 1000)
+
+        # minimal payload subset
+        meta_json = {
+            "action": payload.get("action"),
+            "repository": payload.get("repository", {}).get("full_name"),
+            "pull_request": payload.get("pull_request", {}).get("number")
+        }
+
+        db_client = DB.get_client()
+
+        # 寫入 tasks collection
+        db_client.collection("tasks").document(str(task_id)).set({
+            "task_id": task_id,
+            "status": "PENDING",
+            "source": "github",
+            "description": "GitHub PR event",
+            "meta_json": meta_json,
+            "created_at": firestore.SERVER_TIMESTAMP
+        })
+
+        # 寫入 command_queue collection
+        db_client.collection("command_queue").document(str(task_id)).set({
+            "task_id": task_id,
+            "status": "PENDING",
+            "source": "github",
+            "created_at": firestore.SERVER_TIMESTAMP
+        })
+
         return jsonify({"ok": True, "task_id": task_id})

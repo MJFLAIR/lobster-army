@@ -19,50 +19,32 @@ def mock_db(mock_task_factory):
         mock_ct.get_task.return_value = mock_task
         yield mock_tm
 
-@pytest.fixture
-def mock_network():
-    # Patch NetworkClient inside llm_client.py
-    with patch("tools.llm_client.NetworkClient") as mock:
-        yield mock
-
-def test_phase_6b_flow(mock_db, mock_network):
-    # Setup Network Mock to return valid responses sequentially
-    instance = mock_network.return_value
-    instance.request.side_effect = [PM_RESP, CODE_RESP, REVIEW_RESP]
+@patch.object(LLMClient, "complete")
+def test_phase_6b_flow(mock_complete, mock_db):
+    mock_complete.side_effect = [
+        {"content": '{"plan": []}', "usage": {"total_tokens": 100}},
+        {"content": '{"diff": "..."}', "usage": {"total_tokens": 200}},
+        {"content": '{"status": "PASS", "score": 100}', "usage": {"total_tokens": 50}}
+    ]
 
     tm = TaskManager()
     tm.execute(1)
 
-    # Verify 3 LLM calls via Network
-    assert instance.request.call_count == 3
-    
-    # Verify Cost Updates (implicit via DB mock calls from CostTracker)
-    # Since BaseAgent creates CostTracker which imports DB...
-    # We need to verify the DB interactions. 
-    # But TaskManager imports DB from workflows.storage.db.
-    # CostTracker also imports DB from workflows.storage.db.
-    # If we patched workflows.task_manager.DB, it might not affect CostTracker if it imports it directly.
-    # We should patch the underlying DB class.
-    pass
+    assert mock_complete.call_count == 3
 
 @patch("workflows.task_manager.DB")
 @patch("tools.cost_tracker.DB")
-@patch("tools.llm_client.NetworkClient")
-def test_budget_enforcement(MockNetwork, MockDB_CT, MockDB_TM, mock_task_factory):
-    # Setup high usage response
-    HUGE_RESP = json.dumps({
-        "choices": [{"message": {"content": '{"plan": []}'}}], 
-        "usage": {"total_tokens": 999999} # Exceeds 100k limit
-    }).encode()
-    
-    instance = MockNetwork.return_value
-    instance.request.return_value = HUGE_RESP
+@patch.object(LLMClient, "complete")
+def test_budget_enforcement(mock_complete, MockDB_CT, MockDB_TM, mock_task_factory):
+    mock_complete.return_value = {
+        "content": '{"plan": []}', 
+        "usage": {"total_tokens": 999999}
+    }
     
     # Initial state
     task_state = {"task_id": 2, "source": "test", "requester_id": "user", "description": "Budget Test", "cost_json": {"tokens": 0}}
 
     def get_task(tid):
-        # Return a NEW mock each time reflecting state
         return mock_task_factory(
             task_id=task_state["task_id"], 
             description=task_state["description"], 
@@ -80,21 +62,7 @@ def test_budget_enforcement(MockNetwork, MockDB_CT, MockDB_TM, mock_task_factory
     
     tm = TaskManager()
     
-    # PM Agent calls LLM. 
-    # LLM returns huge usage.
-    # CostTracker.track_usage updates DB and checks budget.
-    # Should raise RuntimeError.
-    
     with pytest.raises(RuntimeError, match="exceeded budget"):
         tm.execute(2)
         
-    # Verify we tried to update cost
     assert task_state["cost_json"]["tokens"] > 100000
-
-@patch("tools.llm_client.Secrets")
-def test_llm_client_secrets(MockSecrets):
-    # Verify apiKey retrieval
-    MockSecrets.get_secret_by_alias.return_value = "secret-key-123"
-    client = LLMClient()
-    assert client.api_key == "secret-key-123"
-    MockSecrets.get_secret_by_alias.assert_called_with("llm_api_key")

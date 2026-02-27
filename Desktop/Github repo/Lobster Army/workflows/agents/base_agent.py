@@ -20,7 +20,7 @@ class BaseAgent:
         for attempt in range(max_retries):
             self.logger.info(f"Task {self.task_id}: Calling LLM (Attempt {attempt + 1}/{max_retries})...")
             try:
-                response = self.llm.complete(prompt, system_prompt)
+                response = self.llm.complete(prompt, system_prompt, task_id=self.task_id)
                 
                 # Track cost (and check budget again)
                 usage = response.get("usage", {})

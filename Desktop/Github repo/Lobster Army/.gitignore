@@ -10,3 +10,18 @@ venv/
 *.log
 .lobster/tmp/
 build/
+
+# Hygiene & Security Rules (incremental append)
+*.env
+.env.*
+env/
+*.pyc
+node_modules/
+service-account*.json
+*sa*.json
+*key*.json
+*secret*.json
+credentials*
+token*
+*.pem
+*.p12

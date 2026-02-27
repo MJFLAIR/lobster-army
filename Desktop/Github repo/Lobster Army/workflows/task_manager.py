@@ -17,7 +17,7 @@ class TaskManager:
         logging.info(f"Starting execution for task {task_id}")
         
         # Initialize Real LLMClient for Phase 6B
-        llm = LLMClient()
+        llm = LLMClient(event_emitter=DB.emit_event)
 
         try:
             # 1. PM Step
@@ -72,6 +72,32 @@ class TaskManager:
             # Success path - In Phase 6B this would trigger Merge/Deploy
             DB.mark_task_done(task_id) # Explicitly mark done if passed
             logging.info(f"Task {task_id} completed successfully")
+            
+            # Post-settlement hook for PRs
+            if getattr(task, "source", None) == "github_pr":
+                try:
+                    from tools.github_reporter import GitHubReporter
+                    GitHubReporter().run_hook(task, review_result)
+                except Exception as e:
+                    logging.error(f"GitHubReporter hook failed: {e}")
+                
+                try:
+                    from tools.github_pr_labeler import GitHubPRLabeler
+                    GitHubPRLabeler().run_hook(task, review_result)
+                except Exception as e:
+                    logging.error(f"GitHubPRLabeler hook failed: {e}")
+                    
+                try:
+                    from tools.github_pr_gate import GitHubPRGate
+                    GitHubPRGate().run_hook(task, review_result)
+                except Exception as e:
+                    logging.error(f"GitHubPRGate hook failed: {e}")
+                    
+                try:
+                    from tools.github_pr_merge_proposal import GitHubPRMergeProposal
+                    GitHubPRMergeProposal().run_hook(task, review_result)
+                except Exception as e:
+                    logging.error(f"GitHubPRMergeProposal hook failed: {e}")
             
         except Exception as e:
             logging.error(f"Task execution failed: {e}")

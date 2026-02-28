@@ -58,7 +58,9 @@ def test_task_manager_flow(mock_db_manager):
         branch_name="test-branch"
     )
     
-    tm.execute(1)
+    with patch("tools.cost_tracker.DB") as mock_db_cost:
+        mock_db_cost.get_task.return_value = mock_db_manager.get_task.return_value
+        tm.execute(1)
     
     # Check events for PM, Code, Review
     calls = mock_db_manager.emit_event.call_args_list

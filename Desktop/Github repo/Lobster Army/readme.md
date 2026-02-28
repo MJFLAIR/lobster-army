@@ -1282,3 +1282,4 @@ Definition of Done (v1.0.9)
 	•	cost tracking persists per-step cost events + budget stops.
 	•	network allowlist enforced via NetworkClient; AST blocks direct network libs.
 	•		•	CI gates run before any expensive review loop.
+A3 gate test

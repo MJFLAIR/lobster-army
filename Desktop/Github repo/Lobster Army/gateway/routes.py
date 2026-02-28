@@ -59,7 +59,8 @@ def register_routes(app: Flask) -> None:
         meta_json = {
             "action": payload.get("action"),
             "repository": payload.get("repository", {}).get("full_name"),
-            "pull_request": payload.get("pull_request", {}).get("number")
+            "pull_request": payload.get("pull_request"),
+            "pr_number": payload.get("pull_request", {}).get("number")
         }
 
         db_client = DB.get_client()

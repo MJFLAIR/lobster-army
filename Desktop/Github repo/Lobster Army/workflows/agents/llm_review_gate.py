@@ -158,9 +158,24 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
         # Skeleton prompt — minimal
         prompt = "Review this PR and return JSON decision."
 
-        response = client.complete(prompt)
+        provider_name = os.getenv("LLM_REVIEW_PROVIDER", "unknown")
+        model_name = os.getenv("LLM_REVIEW_MODEL", "unknown")
+        logging.info("[PR_LLM_PROVIDER] %s", provider_name)
+        logging.info("[PR_LLM_MODEL] %s", model_name)
 
-        result, err = safe_parse_llm_review(response)
+        response = client.complete(prompt)
+        raw_response = response
+
+        logging.info("[PR_LLM_RAW_RESPONSE] %s", raw_response)
+        logging.info("[PR_LLM_RESPONSE_TYPE] %s", type(raw_response))
+
+        try:
+            result, err = safe_parse_llm_review(response)
+        except Exception as e:
+            logging.error("[PR_LLM_SCHEMA_ERROR] %s", str(e))
+            logging.error("[PR_LLM_SCHEMA_ERROR_TYPE] %s", type(e))
+            logging.error("[PR_LLM_SCHEMA_ERROR_RAW] %s", raw_response)
+            raise
 
         if result is None:
             log.warning("[PR_LLM_REJECT] schema invalid")

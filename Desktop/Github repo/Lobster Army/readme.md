@@ -1283,3 +1283,5 @@ Definition of Done (v1.0.9)
 	•	network allowlist enforced via NetworkClient; AST blocks direct network libs.
 	•		•	CI gates run before any expensive review loop.
 A3 gate test
+Shadow mode verification test 2026年 3月 1日 週日 20時45分10秒 CST
+shadow debug 2026年 3月 1日 週日 22時26分51秒 CST

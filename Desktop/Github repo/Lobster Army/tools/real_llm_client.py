@@ -33,18 +33,14 @@ class RealLLMClient(LLMAdapter):
                 logging.warning("openai package not installed.")
         elif self.provider == "gemini":
             try:
-                import google.generativeai as genai
-                # Configure API key only if it's there; assume IAM otherwise
-                api_key = os.environ.get("GEMINI_API_KEY")
-                if api_key:
-                    genai.configure(api_key=api_key)
-                
-                # We instantiate the model dynamically later in _complete_gemini,
-                # but we can try to import module here for fast failure check
-                self._genai = genai
+                from google import genai
+                api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+                if not api_key:
+                    raise RuntimeError("GEMINI_API_KEY missing")
+                self._genai_client = genai.Client(api_key=api_key)
                 self._log_gemini_diag()
             except ImportError:
-                logging.warning("google-generativeai package not installed.")
+                logging.warning("google-genai package not installed.")
         else:
             raise ValueError(f"Unsupported LLM_PROVIDER: {self.provider}")
 
@@ -53,7 +49,7 @@ class RealLLMClient(LLMAdapter):
             return
         auth_mode = "api_key" if os.environ.get("GEMINI_API_KEY") else "adc"
         logging.info(
-            "[GEMINI_DIAG] library=google-generativeai endpoint=generativelanguage.googleapis.com auth_mode=%s model=%s",
+            "[GEMINI_DIAG] library=google-genai endpoint=generativelanguage.googleapis.com auth_mode=%s model=%s",
             auth_mode,
             self.model,
         )
@@ -111,30 +107,23 @@ class RealLLMClient(LLMAdapter):
             raise
 
     def _complete_gemini(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        if not hasattr(self, "_genai"):
-            raise RuntimeError("google-generativeai package is not installed. Cannot use Gemini provider.")
+        if not hasattr(self, "_genai_client"):
+            raise RuntimeError("google-genai package is not installed. Cannot use Gemini provider.")
         
         try:
             # Setup generation config (temperature, max tokens)
-            generation_config = self._genai.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=self.max_tokens_guard
-            )
-            
-            # Combine system_prompt and prompt for Gemini, or use system_instruction if available in model
-            # To be safe across versions, we merge them into the text query
+            # Combine system_prompt and prompt for Gemini.
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"System Instruction:\n{system_prompt}\n\nTask:\n{prompt}"
-                
-            model = self._genai.GenerativeModel(self.model)
-            response = model.generate_content(
-                full_prompt,
-                generation_config=generation_config
+            
+            response = self._genai_client.models.generate_content(
+                model=self.model,
+                contents=full_prompt
             )
 
             # Use `.text` safely
-            content = response.text if response and response.parts else ""
+            content = response.text if response else ""
 
             # Extract JSON to ensure it's valid
             extracted = extract_json(content)

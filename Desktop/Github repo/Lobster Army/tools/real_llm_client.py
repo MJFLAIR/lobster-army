@@ -42,10 +42,21 @@ class RealLLMClient(LLMAdapter):
                 # We instantiate the model dynamically later in _complete_gemini,
                 # but we can try to import module here for fast failure check
                 self._genai = genai
+                self._log_gemini_diag()
             except ImportError:
                 logging.warning("google-generativeai package not installed.")
         else:
             raise ValueError(f"Unsupported LLM_PROVIDER: {self.provider}")
+
+    def _log_gemini_diag(self) -> None:
+        if os.environ.get("DIAG_GEMINI") != "1":
+            return
+        auth_mode = "api_key" if os.environ.get("GEMINI_API_KEY") else "adc"
+        logging.info(
+            "[GEMINI_DIAG] library=google-generativeai endpoint=generativelanguage.googleapis.com auth_mode=%s model=%s",
+            auth_mode,
+            self.model,
+        )
 
     def complete(self, prompt: str, system_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """

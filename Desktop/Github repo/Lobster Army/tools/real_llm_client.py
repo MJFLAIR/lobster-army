@@ -12,12 +12,12 @@ class RealLLMClient(LLMAdapter):
     Handles timeout, retries, and token cost guards.
     """
 
-    def __init__(self):
-        self.provider = os.environ.get("LLM_PROVIDER", "openai").lower()
+    def __init__(self, provider: str, model: str):
+        self.provider = provider.lower()
+        self.model = model
         self.timeout = int(os.environ.get("LLM_TIMEOUT_S", "60"))
         self.max_retries = int(os.environ.get("LLM_RETRY", "2"))
         self.max_tokens_guard = int(os.environ.get("LLM_MAX_TOKENS", "5000"))
-        self.model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
         
         self.openai_client = None
         self.gemini_model = None

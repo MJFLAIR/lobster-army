@@ -53,7 +53,12 @@ class LLMClient(LLMAdapter):
     _cb_is_open = False
     _cb_opened_at = 0.0
 
-    def __init__(self, event_emitter: Optional[Callable[[int, str, dict], None]] = None):
+    def __init__(
+        self,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        event_emitter: Optional[Callable[[int, str, dict], None]] = None,
+    ):
         # Determine mode
         mode = os.environ.get("LLM_MODE")
         if mode:
@@ -62,6 +67,8 @@ class LLMClient(LLMAdapter):
             mode = "mock"
         
         self.mode = mode
+        self.provider = (provider or "openai").lower()
+        self.model = model or "gpt-4o-mini"
         self.mock_adapter = MockLLMAdapter()
         self.event_emitter = event_emitter
         
@@ -73,7 +80,7 @@ class LLMClient(LLMAdapter):
         if self.mode == "real":
             try:
                 from tools.real_llm_client import RealLLMClient
-                self.real_adapter = RealLLMClient()
+                self.real_adapter = RealLLMClient(provider=self.provider, model=self.model)
             except Exception as e:
                 logging.warning(f"Failed to initialize RealLLMClient: {e}. Will fallback to mock.")
 

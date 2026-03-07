@@ -15,12 +15,10 @@ def run_test(provider: str, model: str):
     print(f"Model: {model}")
     print("=" * 60)
 
-    os.environ["LLM_PROVIDER"] = provider
-    os.environ["LLM_MODEL"] = model
     os.environ["LLM_MODE"] = "real"
 
     try:
-        client = RealLLMClient()
+        client = RealLLMClient(provider=provider, model=model)
 
         result = client.complete(
             prompt=TEST_PROMPT,

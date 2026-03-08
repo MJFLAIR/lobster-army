@@ -69,6 +69,7 @@ class LLMClient(LLMAdapter):
         self.mode = mode
         self.provider = (provider or "openai").lower()
         self.model = model or "gpt-4o-mini"
+        print(f"[LLM_INIT] provider={self.provider} model={self.model}")
         self.mock_adapter = MockLLMAdapter()
         self.event_emitter = event_emitter
         

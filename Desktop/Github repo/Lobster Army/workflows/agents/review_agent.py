@@ -1,18 +1,13 @@
 from typing import Dict, Any
+import logging
+
 from workflows.agents.base_agent import BaseAgent
+
+from tools.llm_json_guard import LLMJSONGuard
+from tools.llm_json_schemas import require_review_schema
 
 
 class ReviewAgent(BaseAgent):
-    def validate_response(self, data: Dict[str, Any]) -> None:
-        if "status" not in data:
-            raise ValueError("Schema Error: Missing 'status'")
-        if data["status"] not in ["PASS", "FAIL"]:
-            raise ValueError("Schema Error: 'status' must be PASS or FAIL")
-
-        if "score" not in data:
-            raise ValueError("Schema Error: Missing 'score'")
-        if not isinstance(data["score"], (int, float)):
-            raise ValueError("Schema Error: 'score' must be a number")
 
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         system_prompt = """
@@ -27,24 +22,45 @@ Do NOT output any text outside the JSON object.
 You MUST follow exactly this schema:
 
 {
-  "status": "PASS" or "FAIL",
-  "score": 0-100
+  "approved": true or false,
+  "comments": [
+    {
+      "file": "...",
+      "line": number,
+      "comment": "..."
+    }
+  ]
 }
 
 Rules:
-- "status" MUST be either "PASS" or "FAIL".
-- "score" MUST be a number between 0 and 100.
+- "approved" MUST be boolean.
+- "comments" MUST be a list.
+- Each comment must include file, line, and comment.
 - No additional keys.
-- No comments.
-- No extra text.
+- No comments outside JSON.
 """
 
         prompt = f"""
 Review the following implementation result:
 
 {context}
-
-Return strictly the JSON object as defined above.
 """
 
-        return self._call_llm(prompt, system_prompt)
+        response = self._call_llm(prompt, system_prompt)
+
+        guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
+
+        raw = response["content"] if isinstance(response, dict) else str(response)
+
+        parsed = guard.parse_object(raw, validator=require_review_schema)
+
+        if not parsed.ok:
+            logging.warning("[REVIEW_SCHEMA_ERROR] %s", parsed.error)
+
+            return {
+                "approved": False,
+                "comments": [],
+                "error": f"schema_invalid: {parsed.error}"
+            }
+
+        return parsed.data

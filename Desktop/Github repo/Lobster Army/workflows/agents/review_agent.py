@@ -50,7 +50,17 @@ Review the following implementation result:
 
         guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
 
-        raw = response["content"] if isinstance(response, dict) else str(response)
+        # Robust response extraction (avoid KeyError and support multiple LLM formats)
+        if isinstance(response, dict):
+            raw = (
+                response.get("content")
+                or response.get("text")
+                or response.get("output")
+                or response.get("message")
+                or ""
+            )
+        else:
+            raw = str(response)
 
         parsed = guard.parse_object(raw, validator=require_review_schema)
 

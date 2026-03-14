@@ -19,7 +19,7 @@ def mock_db_manager(mock_task_factory):
 # Helper to mock LLMClient complete
 @pytest.fixture
 def mock_llm_client():
-    with patch("workflows.task_manager.LLMClient") as mock:
+    with patch("llm.factory.create_llm") as mock:
         yield mock
 
 def test_retry_logic(mock_db_manager):
@@ -56,7 +56,7 @@ def test_schema_validation_failure(mock_db_manager):
 
 @patch("workflows.task_manager.DB")
 @patch("tools.cost_tracker.DB")
-@patch("workflows.task_manager.LLMClient") # Patched for Phase 6B
+@patch("llm.factory.create_llm") # Patched for Phase 6B
 def test_escalation_policy(MockLLMClass, MockDB_CT, MockDB_TM, mock_task_factory):
     # Test Max Cycles reached
     # Setup LLM to always return FAIL for Review
@@ -92,7 +92,7 @@ def test_escalation_policy(MockLLMClass, MockDB_CT, MockDB_TM, mock_task_factory
 
 @patch("workflows.task_manager.DB")
 @patch("tools.cost_tracker.DB")
-@patch("workflows.task_manager.LLMClient")
+@patch("llm.factory.create_llm")
 def test_successful_cycle(MockLLMClass, MockDB_CT, MockDB_TM, mock_task_factory):
     # Return PASS on first review
     instance = MockLLMClass.return_value

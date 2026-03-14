@@ -153,7 +153,13 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        client = LLMClient()
+        from llm.role_config import get_role_config
+        from llm.factory import create_llm
+        
+        cfg = get_role_config("pr_gate")
+        client = create_llm(cfg["provider"], cfg["model"])
+        logging.info(f"[PR_GATE_LLM_PROVIDER] {cfg['provider']}")
+
 
         # Skeleton prompt — minimal
         prompt = "Review this PR and return JSON decision."

@@ -1283,3 +1283,24 @@ Definition of Done (v1.0.9)
 	•	network allowlist enforced via NetworkClient; AST blocks direct network libs.
 	•		•	CI gates run before any expensive review loop.
 A3 gate test
+raw capture trigger 2026年 3月 1日 週日 22時45分06秒 CST
+raw capture trigger 2026年 3月 1日 週日 22時47分30秒 CST
+# test trigger
+2026年 3月 2日 週一 23時58分27秒 CST
+trigger 2026年 3月 2日 週一 23時59分39秒 CST
+
+---
+
+## Runtime SSL Certificate Verification
+
+This commit verifies that the Cloud Run runtime container
+can successfully establish outbound HTTPS connections
+after installing system CA certificates.
+
+Expected:
+- No "Connection error"
+- No CircuitBreaker OPENED
+- Successful real LLM call
+
+Timestamp: 2026年 3月 3日 週二 01時16分46秒 CST
+

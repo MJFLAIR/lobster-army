@@ -16,13 +16,18 @@ class TaskManager:
 
         logging.info(f"Starting execution for task {task_id}")
         
-        # Initialize Real LLMClient for Phase 6B
-        llm = LLMClient(event_emitter=DB.emit_event)
+        from llm.role_config import get_role_config
+        from llm.factory import create_llm
 
         try:
             # 1. PM Step
             DB.emit_event(task_id, "STEP_START", {"step": "PM"})
-            pm_agent = PMAgent(llm, task_id)
+            
+            cfg_pm = get_role_config("pm")
+            llm_pm = create_llm(cfg_pm["provider"], cfg_pm["model"])
+            logging.info(f"[PM_LLM_PROVIDER] {cfg_pm['provider']}")
+            pm_agent = PMAgent(llm_pm, task_id)
+            
             # Use attribute access for Dataclass
             pm_result = pm_agent.run({"description": task.description})
             DB.emit_event(task_id, "STEP_DONE", {"step": "PM", "result": pm_result})
@@ -42,7 +47,11 @@ class TaskManager:
 
                 # Code Step
                 DB.emit_event(task_id, "STEP_START", {"step": "Code", "cycle": cycle})
-                code_agent = CodeAgent(llm, task_id)
+                
+                cfg_code = get_role_config("code")
+                llm_code = create_llm(cfg_code["provider"], cfg_code["model"])
+                logging.info(f"[CODE_LLM_PROVIDER] {cfg_code['provider']}")
+                code_agent = CodeAgent(llm_code, task_id)
                 
                 # In a real scenario, we'd pass feedback from previous review
                 # coding_context = {"plan": current_plan, "feedback": feedback}
@@ -51,7 +60,11 @@ class TaskManager:
 
                 # Review Step
                 DB.emit_event(task_id, "STEP_START", {"step": "Review", "cycle": cycle})
-                review_agent = ReviewAgent(llm, task_id)
+                
+                cfg_review = get_role_config("review")
+                llm_review = create_llm(cfg_review["provider"], cfg_review["model"])
+                logging.info(f"[REVIEW_LLM_PROVIDER] {cfg_review['provider']}")
+                review_agent = ReviewAgent(llm_review, task_id)
                 review_result = review_agent.run(code_result)
                 DB.emit_event(task_id, "STEP_DONE", {"step": "Review", "result": review_result})
 

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from workflows.agents.llm_review_gate import run_llm_review, build_merge_key
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 @patch("workflows.agents.llm_review_gate.merge_key_exists")
 @patch.dict('os.environ', {
@@ -26,7 +26,7 @@ def test_idempotency_emits_on_first_pass(mock_exists, mock_emit, mock_llm_client
     events = [c[0][1] for c in calls]
     assert "MERGE_CANDIDATE" in events
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 @patch("workflows.agents.llm_review_gate.merge_key_exists")
 @patch.dict('os.environ', {
@@ -51,7 +51,7 @@ def test_idempotency_does_not_emit_on_duplicate(mock_exists, mock_emit, mock_llm
     assert "MERGE_CANDIDATE" not in events
 
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 @patch("workflows.agents.llm_review_gate.merge_key_exists")
 @patch.dict('os.environ', {
@@ -75,7 +75,7 @@ def test_idempotency_emits_on_threshold_change(mock_exists, mock_emit, mock_llm_
     events = [c[0][1] for c in calls]
     assert "MERGE_CANDIDATE" in events
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 @patch("workflows.agents.llm_review_gate.merge_key_exists")
 @patch.dict('os.environ', {

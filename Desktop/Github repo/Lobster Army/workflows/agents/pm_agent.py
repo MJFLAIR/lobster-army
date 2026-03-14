@@ -1,16 +1,13 @@
 from typing import Dict, Any
+import logging
+
 from workflows.agents.base_agent import BaseAgent
+
+from tools.llm_json_guard import LLMJSONGuard
+from tools.llm_json_schemas import require_pm_schema
 
 
 class PMAgent(BaseAgent):
-    def validate_response(self, data: Dict[str, Any]) -> None:
-        if "plan" not in data:
-            raise ValueError("Schema Error: Missing 'plan' field")
-        if not isinstance(data["plan"], list):
-            raise ValueError("Schema Error: 'plan' must be a list")
-        for item in data["plan"]:
-            if not isinstance(item, str):
-                raise ValueError("Schema Error: Each plan item must be a string")
 
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         system_prompt = """
@@ -25,22 +22,21 @@ Do NOT output any text outside the JSON object.
 The output MUST strictly follow this schema:
 
 {
-  "plan": [
-    "step 1",
-    "step 2",
-    "step 3"
+  "tasks": [
+    {
+      "title": "...",
+      "description": "...",
+      "priority": "low|medium|high"
+    }
   ]
 }
 
 Rules:
-- The "plan" field MUST be a JSON array (list).
-- Each item in the list MUST be a string.
-- No additional keys are allowed.
-- No comments.
+- The "tasks" field MUST be a JSON array.
+- Each task must contain title, description, priority.
+- Priority must be low, medium, or high.
+- No additional keys.
 - No extra text.
-- Only a single valid JSON object.
-
-If you fail to follow the schema exactly, the response will be rejected.
 """
 
         prompt = f"""
@@ -48,8 +44,34 @@ Create a simplified implementation plan for the following task.
 
 Task:
 {context.get('description')}
-
-Return strictly the JSON object as defined above.
 """
 
-        return self._call_llm(prompt, system_prompt)
+        response = self._call_llm(prompt, system_prompt)
+
+        guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
+
+        # ---- Robust response extraction (fix KeyError issue) ----
+        if isinstance(response, dict):
+            raw = (
+                response.get("content")
+                or response.get("text")
+                or response.get("output")
+                or response.get("message")
+                or ""
+            )
+        else:
+            raw = str(response)
+
+        # --------------------------------------------------------
+
+        parsed = guard.parse_object(raw, validator=require_pm_schema)
+
+        if not parsed.ok:
+            logging.warning("[PM_SCHEMA_ERROR] %s", parsed.error)
+
+            return {
+                "tasks": [],
+                "error": f"schema_invalid: {parsed.error}"
+            }
+
+        return parsed.data

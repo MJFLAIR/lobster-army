@@ -6,11 +6,11 @@ import hashlib
 import json
 from typing import Any, Dict
 
-from workflows.models.llm_review import (
-    safe_parse_llm_review,
-    clamp01,
-)
+# 移除了舊的 safe_parse_llm_review，只保留 clamp01
+from workflows.models.llm_review import clamp01
 
+# 引入 5.2 的神級 JSON Guard
+from tools.llm_json_guard import LLMJSONGuard, require_pr_gate_schema
 from tools.llm_client import LLMClient  # 使用既有 client
 from tools.cost_tracker import DB
 
@@ -153,22 +153,38 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        client = LLMClient()
+        from llm.role_config import get_role_config
+        from llm.factory import create_llm
+        
+        cfg = get_role_config("pr_gate")
+        client = create_llm(cfg["provider"], cfg["model"])
+        logging.info(f"[PR_GATE_LLM_PROVIDER] {cfg['provider']}")
 
-        # Skeleton prompt — minimal
-        prompt = "Review this PR and return JSON decision."
+        # 強化版 Prompt：嚴格規定 JSON 格式，並附上 meta_json 讓它有東西可以看
+        prompt = (
+            "Review this PR. You MUST return ONLY a JSON object containing exactly three keys:\n"
+            "- 'decision': strictly 'approve' or 'reject'\n"
+            "- 'score': a float number between 0.0 and 1.0\n"
+            "- 'reason': a string explaining why\n\n"
+            f"PR Metadata: {json.dumps(meta_json)}"
+        )
 
         response = client.complete(prompt)
 
-        result, err = safe_parse_llm_review(response)
+        # ==========================================
+        # 🛡️ 啟動 5.2 的 LLM JSON Guard 安檢門 🛡️
+        # ==========================================
+        guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
+        raw = response["content"] if isinstance(response, dict) else str(response)
+        parsed = guard.parse_object(raw, validator=require_pr_gate_schema)
 
-        if result is None:
-            log.warning("[PR_LLM_REJECT] schema invalid")
+        if not parsed.ok:
+            log.warning("[PR_LLM_SCHEMA_ERROR] %s", parsed.error)
             DB.emit_event(
                 task_id,
                 "PR_LLM_REJECT",
                 {
-                    "reason": "schema_invalid",
+                    "reason": f"schema_invalid: {parsed.error}",
                     "score": 0.0,
                     "policy_snapshot": build_policy_snapshot(),
                 },
@@ -176,13 +192,21 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 "decision": "reject",
                 "score": 0.0,
-                "reason": "schema_invalid",
-                "error": err,
+                "reason": f"schema invalid: {parsed.error}",
             }
 
-        threshold = get_threshold()
+        # 取得純淨、合法、帶有完整欄位的 Python 字典
+        data = parsed.data
+        # ==========================================
 
-        if result.decision == "approve" and result.score >= threshold:
+        threshold = get_threshold()
+        
+        # 從 parsed data 中提取變數，取代原本的 result.decision
+        decision = data["decision"]
+        score = data["score"]
+        reason = data["reason"]
+
+        if decision == "approve" and score >= threshold:
             log.info("[PR_LLM_APPROVE]")
             
             policy_snapshot = build_policy_snapshot()
@@ -191,7 +215,7 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
                 task_id,
                 "PR_LLM_APPROVE",
                 {
-                    "score": result.score,
+                    "score": score,
                     "threshold": threshold,
                     "policy_snapshot": policy_snapshot,
                 },
@@ -199,8 +223,8 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
 
             merge_key = build_merge_key(
                 task_id=task_id,
-                decision=result.decision,
-                score=result.score,
+                decision=decision,
+                score=score,
                 threshold=threshold,
                 policy_snapshot=policy_snapshot,
             )
@@ -210,7 +234,7 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
                     task_id,
                     "MERGE_CANDIDATE",
                     {
-                        "score": result.score,
+                        "score": score,
                         "threshold": threshold,
                         "proposal": "deterministic_llm_pass",
                         "policy_snapshot": policy_snapshot,
@@ -225,17 +249,17 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
                 task_id,
                 "PR_LLM_REJECT",
                 {
-                    "score": result.score,
+                    "score": score,
                     "threshold": threshold,
-                    "reason": result.reason,
+                    "reason": reason,
                     "policy_snapshot": build_policy_snapshot(),
                 },
             )
 
         return {
-            "decision": result.decision,
-            "score": result.score,
-            "reason": result.reason,
+            "decision": decision,
+            "score": score,
+            "reason": reason,
         }
 
     except Exception as e:

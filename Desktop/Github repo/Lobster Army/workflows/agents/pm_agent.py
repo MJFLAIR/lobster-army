@@ -3,7 +3,6 @@ import logging
 
 from workflows.agents.base_agent import BaseAgent
 
-from tools.llm_json_guard import LLMJSONGuard
 from tools.llm_json_schemas import require_pm_schema
 
 
@@ -48,30 +47,15 @@ Task:
 
         response = self._call_llm(prompt, system_prompt, require_json=True)
 
-        guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
+        parsed = response
 
-        # ---- Robust response extraction (fix KeyError issue) ----
-        if isinstance(response, dict):
-            raw = (
-                response.get("content")
-                or response.get("text")
-                or response.get("output")
-                or response.get("message")
-                or ""
-            )
-        else:
-            raw = str(response)
-
-        # --------------------------------------------------------
-
-        parsed = guard.parse_object(raw, validator=require_pm_schema)
-
-        if not parsed.ok:
-            logging.warning("[PM_SCHEMA_ERROR] %s", parsed.error)
+        try:
+            valid_data = require_pm_schema(parsed)
+            return valid_data
+        except Exception as e:
+            logging.warning("[PM_SCHEMA_ERROR] %s", e)
 
             return {
                 "tasks": [],
-                "error": f"schema_invalid: {parsed.error}"
+                "error": f"schema_invalid: {e}"
             }
-
-        return parsed.data

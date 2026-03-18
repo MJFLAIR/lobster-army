@@ -3,7 +3,6 @@ import logging
 
 from workflows.agents.base_agent import BaseAgent
 
-from tools.llm_json_guard import LLMJSONGuard
 from tools.llm_json_schemas import require_review_schema
 
 
@@ -56,29 +55,16 @@ Review the following implementation result:
 
         response = self._call_llm(prompt, system_prompt, require_json=True)
 
-        guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
+        parsed = response
 
-        # Robust response extraction (avoid KeyError and support multiple LLM formats)
-        if isinstance(response, dict):
-            raw = (
-                response.get("content")
-                or response.get("text")
-                or response.get("output")
-                or response.get("message")
-                or ""
-            )
-        else:
-            raw = str(response)
-
-        parsed = guard.parse_object(raw, validator=require_review_schema)
-
-        if not parsed.ok:
-            logging.warning("[REVIEW_SCHEMA_ERROR] %s", parsed.error)
+        try:
+            valid_data = require_review_schema(parsed)
+            return valid_data
+        except Exception as e:
+            logging.warning("[REVIEW_SCHEMA_ERROR] %s", e)
 
             return {
                 "approved": False,
                 "comments": [],
-                "error": f"schema_invalid: {parsed.error}"
+                "error": f"schema_invalid: {e}"
             }
-
-        return parsed.data

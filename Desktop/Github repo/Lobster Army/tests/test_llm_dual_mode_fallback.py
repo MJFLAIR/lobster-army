@@ -10,7 +10,7 @@ from tools.llm_client import LLMClient
 
 def test_llm_dual_mode_fallback_api_error():
     os.environ["LLM_MODE"] = "real"
-    client = LLMClient()
+    client = LLMClient(provider="openai", model="gpt-4o-mini")
     
     assert client.mode == "real", "Mode should be initialized as real based on env var"
     assert client.real_adapter is not None, "Real adapter should be instantiated"
@@ -29,7 +29,7 @@ def test_llm_dual_mode_fallback_api_error():
 def test_llm_dual_mode_fallback_json_extract_error():
     """Verify that if extract_json fails, we still fallback safely to mock"""
     os.environ["LLM_MODE"] = "real"
-    client = LLMClient()
+    client = LLMClient(provider="openai", model="gpt-4o-mini")
     
     # We bypass openai check by providing a dummy client implementation
     class DummyMessage:

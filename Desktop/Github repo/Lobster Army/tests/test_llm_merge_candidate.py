@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from workflows.agents.llm_review_gate import run_llm_review
 
 @patch("workflows.agents.llm_review_gate.merge_key_exists")
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 @patch.dict('os.environ', {
     "GATE_SCORE_THRESHOLD": "0.75",
@@ -48,7 +48,7 @@ def test_merge_candidate_emitted_on_approve(mock_emit, mock_llm_client, mock_mer
     assert snap["llm_provider"] == "test-provider"
 
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 def test_merge_candidate_not_emitted_on_approve_low_score(mock_emit, mock_llm_client):
     # Setup mock LLM response
@@ -73,7 +73,7 @@ def test_merge_candidate_not_emitted_on_approve_low_score(mock_emit, mock_llm_cl
     assert "MERGE_CANDIDATE" not in events
 
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 def test_merge_candidate_not_emitted_on_reject(mock_emit, mock_llm_client):
     # Setup mock LLM response
@@ -96,7 +96,7 @@ def test_merge_candidate_not_emitted_on_reject(mock_emit, mock_llm_client):
     assert "PR_LLM_REJECT" in events
     assert "MERGE_CANDIDATE" not in events
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 def test_merge_candidate_not_emitted_on_invalid_schema(mock_emit, mock_llm_client):
     # Setup mock LLM response
@@ -118,7 +118,7 @@ def test_merge_candidate_not_emitted_on_invalid_schema(mock_emit, mock_llm_clien
     assert "PR_LLM_REJECT" in events
     assert "MERGE_CANDIDATE" not in events
 
-@patch("workflows.agents.llm_review_gate.LLMClient")
+@patch("llm.factory.create_llm")
 @patch("workflows.agents.llm_review_gate.DB.emit_event")
 def test_merge_candidate_not_emitted_on_exception(mock_emit, mock_llm_client):
     # Setup mock LLM response

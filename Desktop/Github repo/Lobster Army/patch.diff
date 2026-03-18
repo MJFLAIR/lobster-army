@@ -1,0 +1,313 @@
+diff --git a/Desktop/Github repo/Lobster Army/llm/factory.py b/Desktop/Github repo/Lobster Army/llm/factory.py
+index bd511e9..c4752c4 100644
+--- a/Desktop/Github repo/Lobster Army/llm/factory.py	
++++ b/Desktop/Github repo/Lobster Army/llm/factory.py	
+@@ -1,7 +1,29 @@
++import os
++import logging
+ from tools.llm_client import LLMClient
++from llm.role_config import get_role_config
+ 
+ def create_llm(provider: str, model: str) -> LLMClient:
+     """
+     Creates an LLMClient with explicit provider/model binding.
+     """
+     return LLMClient(provider=provider, model=model)
++
++def get_llm_for_role(role: str) -> LLMClient:
++    try:
++        config = get_role_config(role)
++        provider = config["provider"]
++        model = config["model"]
++
++        logging.info(
++            f"[LLM_ROLE_MAPPING] role={role} provider={provider} model={model}"
++        )
++    except Exception as e:
++        provider = os.getenv("LLM_PROVIDER", "openai")
++        model = os.getenv("LLM_MODEL", "gpt-4o-mini")
++
++        logging.warning(
++            f"[LLM_ROLE_MAPPING_FALLBACK] role={role} provider={provider} model={model} error={e}"
++        )
++
++    return create_llm(provider=provider, model=model)
+diff --git a/Desktop/Github repo/Lobster Army/llm/role_config.py b/Desktop/Github repo/Lobster Army/llm/role_config.py
+index 13fa785..7bee14b 100644
+--- a/Desktop/Github repo/Lobster Army/llm/role_config.py	
++++ b/Desktop/Github repo/Lobster Army/llm/role_config.py	
+@@ -1,23 +1,58 @@
+-import os
++import json
++from pathlib import Path
+ from typing import Dict
+ 
++# Resolve project root dynamically
++PROJECT_ROOT = Path(__file__).resolve().parents[1]
++
++CONFIG_PATH = PROJECT_ROOT / "config" / "llm_role_config.json"
++
++# Cache configuration after first load
++_ROLE_CONFIG: Dict[str, dict] | None = None
++
++
++def _load_config() -> Dict[str, dict]:
++    global _ROLE_CONFIG
++
++    if _ROLE_CONFIG is not None:
++        return _ROLE_CONFIG
++
++    if not CONFIG_PATH.exists():
++        raise FileNotFoundError(f"LLM role config not found: {CONFIG_PATH}")
++
++    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
++        _ROLE_CONFIG = json.load(f)
++
++    return _ROLE_CONFIG
++
++
+ def get_role_config(role: str) -> Dict[str, str]:
+     """
+-    Reads role-specific LLM configuration from the environment.
+-    Fallback to default: provider=openai, model=gpt-4o-mini
+-    
+-    Env vars used:
+-    {ROLE}_LLM_PROVIDER (e.g. PM_LLM_PROVIDER)
+-    {ROLE}_LLM_MODEL    (e.g. PM_LLM_MODEL)
++    Return provider and model configuration for a given role.
++
++    Example:
++        get_role_config("pm")
++
++    Returns:
++        {
++            "provider": "...",
++            "model": "..."
++        }
+     """
+-    prefix = role.upper()
+-    provider_key = f"{prefix}_LLM_PROVIDER"
+-    model_key = f"{prefix}_LLM_MODEL"
+-    
+-    provider = os.getenv(provider_key, "openai")
+-    model = os.getenv(model_key, "gpt-4o-mini")
+-    
+-    return {
+-        "provider": provider,
+-        "model": model
+-    }
++
++    config = _load_config()
++
++    role = role.lower()
++
++    role_map = config["roles"]
++    providers = config["providers"]
++
++    if role not in role_map:
++        raise ValueError(f"Unknown LLM role: {role}")
++
++    provider_key = role_map[role]
++
++    if provider_key not in providers:
++        raise ValueError(f"Unknown provider key: {provider_key}")
++
++    return providers[provider_key]
+diff --git a/Desktop/Github repo/Lobster Army/runtime/app.py b/Desktop/Github repo/Lobster Army/runtime/app.py
+index c8dd39a..6af3b17 100644
+--- a/Desktop/Github repo/Lobster Army/runtime/app.py	
++++ b/Desktop/Github repo/Lobster Army/runtime/app.py	
+@@ -11,7 +11,12 @@ from google.cloud import firestore
+ from google.api_core.exceptions import AlreadyExists
+ import logging
+ 
++# 🛡️ 引入我們的智商稅攔截網
++from gateway.pr_filter import should_process_pr
++
++# ✅ 1. 統一使用專屬 Logger，捨棄 root logger
+ logging.basicConfig(level=logging.INFO)
++logger = logging.getLogger(__name__)
+ 
+ def create_app() -> Flask:
+     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT")
+@@ -36,7 +41,7 @@ def create_app() -> Flask:
+     # 4. Add /health endpoint
+     @app.get("/health")
+     def health():
+-        return jsonify({"status": "ok", "service": "runtime", "version": "1.0.9"}), 200
++        return jsonify({"status": "ok", "service": "gateway", "version": "1.0.9"}), 200
+ 
+     @app.post("/cron/tick")
+     def cron_tick():
+@@ -45,7 +50,7 @@ def create_app() -> Flask:
+     @app.post("/tasks")
+     def create_task():
+         try:
+-            data = request.get_json()
++            data = request.get_json(silent=True)
+ 
+             if not data:
+                 return jsonify({"ok": False, "error": "Missing JSON body"}), 400
+@@ -77,6 +82,7 @@ def create_app() -> Flask:
+             }), 200
+ 
+         except Exception as e:
++            logger.error(f"Error creating task: {e}")
+             return jsonify({
+                 "ok": False,
+                 "error": str(e)
+@@ -90,23 +96,30 @@ def create_app() -> Flask:
+             signature_header = request.headers.get("X-Hub-Signature-256", "")
+             
+             if not GitHubWebhook.verify_signature(raw_body, signature_header):
+-                logging.warning("GitHub Webhook signature verification failed.")
++                logger.warning("GitHub Webhook signature verification failed.")
+                 return jsonify({"ok": False, "error": "bad_signature"}), 401
+ 
+-            # 2. Check Event Type
++            # 2. Check Event Type & Log Delivery ID
+             event_type = request.headers.get("X-GitHub-Event", "")
++            logger.info(
++                "[GITHUB_WEBHOOK] event=%s delivery=%s",
++                event_type,
++                request.headers.get("X-GitHub-Delivery", "unknown")
++            )
++            
+             if event_type != "pull_request":
+                 return jsonify({"ok": True, "ignored": True}), 200
+ 
+             # 3. Parse JSON & Check Action
+-            data = request.get_json()
++            data = request.get_json(silent=True)
+             if not data:
+                 return jsonify({"ok": False, "error": "Missing JSON body"}), 400
+ 
+             action = data.get("action", "")
+-            allowed_actions = {"opened", "reopened", "synchronize", "ready_for_review"}
+-            if action not in allowed_actions:
+-                return jsonify({"ok": True, "ignored": True}), 200
++
++            # 🛡️ 啟動智商稅攔截網 (PR Filter)
++            if not should_process_pr(data, action):
++                return jsonify({"ok": True, "ignored": True, "reason": "filtered_by_pr_filter"}), 200
+ 
+             # Extract necessary payload details
+             pr_data = data.get("pull_request", {})
+@@ -126,6 +139,11 @@ def create_app() -> Flask:
+             head_ref = head_data.get("ref", "")
+             base_ref = base_data.get("ref", "")
+ 
++            # ✅ 2. 保護 head_sha：確保 dedup_key 絕對安全
++            if not head_sha:
++                logger.error("[GITHUB_WEBHOOK] Missing head_sha in payload. Aborting task creation.")
++                return jsonify({"ok": False, "error": "missing head sha"}), 400
++
+             # Default PR info description
+             description = f"Review PR #{pr_number}: {pr_title}"
+ 
+@@ -160,7 +178,7 @@ def create_app() -> Flask:
+                     "created_at": firestore.SERVER_TIMESTAMP
+                 })
+             except AlreadyExists:
+-                # Optionally return existing task_id if we want, but returning ignored is enough
++                logger.info(f"[GITHUB_WEBHOOK] Duplicate webhook received for dedup_key={dedup_key}")
+                 return jsonify({"ok": True, "ignored": True, "reason": "duplicate"}), 200
+ 
+             # Store payload_subset in meta_json, and set plan_json to None
+@@ -174,6 +192,8 @@ def create_app() -> Flask:
+             )
+ 
+             DB.create_task(task)
++            
++            logger.info(f"[GITHUB_WEBHOOK] Successfully created task_id={task_id} for PR #{pr_number}")
+ 
+             return jsonify({
+                 "ok": True,
+@@ -182,7 +202,7 @@ def create_app() -> Flask:
+             }), 200
+ 
+         except Exception as e:
+-            logging.error(f"Error processing GitHub Webhook: {e}")
++            logger.error(f"Error processing GitHub Webhook: {e}")
+             return jsonify({
+                 "ok": False,
+                 "error": str(e)
+diff --git a/Desktop/Github repo/Lobster Army/runtime/task_worker.py b/Desktop/Github repo/Lobster Army/runtime/task_worker.py
+index 186a69a..02d5109 100644
+--- a/Desktop/Github repo/Lobster Army/runtime/task_worker.py	
++++ b/Desktop/Github repo/Lobster Army/runtime/task_worker.py	
+@@ -142,6 +142,10 @@ class TaskWorker:
+                     if author in allowlist_users:
+                         logging.info("[PR_GATE_PASS] repo=%s pr=%s action=%s author=%s", repo, pr_number, action, author)
+                         
++                        from workflows.task_router import select_pipeline
++                        router_decision = select_pipeline(meta_json)
++                        logging.info("[TASK_ROUTER_DECISION] pipeline=%s", router_decision.get("pipeline", "review_only"))
++                        
+                         from workflows.agents.llm_review_gate import run_llm_review
+                         review = run_llm_review(str(task_id), meta_json)
+                         logging.info(
+diff --git a/Desktop/Github repo/Lobster Army/workflows/agents/llm_review_gate.py b/Desktop/Github repo/Lobster Army/workflows/agents/llm_review_gate.py
+index bce8aab..1e88bb6 100644
+--- a/Desktop/Github repo/Lobster Army/workflows/agents/llm_review_gate.py	
++++ b/Desktop/Github repo/Lobster Army/workflows/agents/llm_review_gate.py	
+@@ -153,12 +153,9 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
+     )
+ 
+     try:
+-        from llm.role_config import get_role_config
+-        from llm.factory import create_llm
++        from llm.factory import get_llm_for_role
+         
+-        cfg = get_role_config("pr_gate")
+-        client = create_llm(cfg["provider"], cfg["model"])
+-        logging.info(f"[PR_GATE_LLM_PROVIDER] {cfg['provider']}")
++        client = get_llm_for_role("pr_gate")
+ 
+         # 強化版 Prompt：嚴格規定 JSON 格式，並附上 meta_json 讓它有東西可以看
+         prompt = (
+diff --git a/Desktop/Github repo/Lobster Army/workflows/task_manager.py b/Desktop/Github repo/Lobster Army/workflows/task_manager.py
+index 6a30286..3346832 100644
+--- a/Desktop/Github repo/Lobster Army/workflows/task_manager.py	
++++ b/Desktop/Github repo/Lobster Army/workflows/task_manager.py	
+@@ -16,16 +16,13 @@ class TaskManager:
+ 
+         logging.info(f"Starting execution for task {task_id}")
+         
+-        from llm.role_config import get_role_config
+-        from llm.factory import create_llm
++        from llm.factory import get_llm_for_role
+ 
+         try:
+             # 1. PM Step
+             DB.emit_event(task_id, "STEP_START", {"step": "PM"})
+             
+-            cfg_pm = get_role_config("pm")
+-            llm_pm = create_llm(cfg_pm["provider"], cfg_pm["model"])
+-            logging.info(f"[PM_LLM_PROVIDER] {cfg_pm['provider']}")
++            llm_pm = get_llm_for_role("pm")
+             pm_agent = PMAgent(llm_pm, task_id)
+             
+             # Use attribute access for Dataclass
+@@ -48,9 +45,7 @@ class TaskManager:
+                 # Code Step
+                 DB.emit_event(task_id, "STEP_START", {"step": "Code", "cycle": cycle})
+                 
+-                cfg_code = get_role_config("code")
+-                llm_code = create_llm(cfg_code["provider"], cfg_code["model"])
+-                logging.info(f"[CODE_LLM_PROVIDER] {cfg_code['provider']}")
++                llm_code = get_llm_for_role("code")
+                 code_agent = CodeAgent(llm_code, task_id)
+                 
+                 # In a real scenario, we'd pass feedback from previous review
+@@ -61,9 +56,7 @@ class TaskManager:
+                 # Review Step
+                 DB.emit_event(task_id, "STEP_START", {"step": "Review", "cycle": cycle})
+                 
+-                cfg_review = get_role_config("review")
+-                llm_review = create_llm(cfg_review["provider"], cfg_review["model"])
+-                logging.info(f"[REVIEW_LLM_PROVIDER] {cfg_review['provider']}")
++                llm_review = get_llm_for_role("review")
+                 review_agent = ReviewAgent(llm_review, task_id)
+                 review_result = review_agent.run(code_result)
+                 DB.emit_event(task_id, "STEP_DONE", {"step": "Review", "result": review_result})

@@ -23,7 +23,7 @@ def test_llm_circuit_breaker_threshold_and_cooldown():
     os.environ["LLM_MODE"] = "real"
     os.environ["LLM_CB_FAIL_THRESHOLD"] = "3"
     os.environ["LLM_CB_COOLDOWN_S"] = "300"
-    client = LLMClient()
+    client = LLMClient(provider="openai", model="gpt-4o-mini")
     assert client.mode == "real"
     
     # 1. Simulate repeated failures to trip the breaker

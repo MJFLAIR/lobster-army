@@ -1,0 +1,18 @@
+{
+  "providers": {
+    "gemini_flash": {
+      "provider": "gemini",
+      "model": "gemini-2.5-flash"
+    },
+    "openai_mini": {
+      "provider": "openai",
+      "model": "gpt-4o-mini"
+    }
+  },
+  "roles": {
+    "pm": "gemini_flash",
+    "code": "openai_mini",
+    "review": "openai_mini",
+    "pr_gate": "gemini_flash"
+  }
+}

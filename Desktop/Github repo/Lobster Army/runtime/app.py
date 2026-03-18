@@ -11,7 +11,12 @@ from google.cloud import firestore
 from google.api_core.exceptions import AlreadyExists
 import logging
 
+# 🛡️ 引入我們的智商稅攔截網
+from gateway.pr_filter import should_process_pr
+
+# ✅ 1. 統一使用專屬 Logger，捨棄 root logger
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_app() -> Flask:
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT")
@@ -36,7 +41,7 @@ def create_app() -> Flask:
     # 4. Add /health endpoint
     @app.get("/health")
     def health():
-        return jsonify({"status": "ok", "service": "runtime", "version": "1.0.9"}), 200
+        return jsonify({"status": "ok", "service": "gateway", "version": "1.0.9"}), 200
 
     @app.post("/cron/tick")
     def cron_tick():
@@ -45,7 +50,7 @@ def create_app() -> Flask:
     @app.post("/tasks")
     def create_task():
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True)
 
             if not data:
                 return jsonify({"ok": False, "error": "Missing JSON body"}), 400
@@ -77,6 +82,7 @@ def create_app() -> Flask:
             }), 200
 
         except Exception as e:
+            logger.error(f"Error creating task: {e}")
             return jsonify({
                 "ok": False,
                 "error": str(e)
@@ -90,23 +96,30 @@ def create_app() -> Flask:
             signature_header = request.headers.get("X-Hub-Signature-256", "")
             
             if not GitHubWebhook.verify_signature(raw_body, signature_header):
-                logging.warning("GitHub Webhook signature verification failed.")
+                logger.warning("GitHub Webhook signature verification failed.")
                 return jsonify({"ok": False, "error": "bad_signature"}), 401
 
-            # 2. Check Event Type
+            # 2. Check Event Type & Log Delivery ID
             event_type = request.headers.get("X-GitHub-Event", "")
+            logger.info(
+                "[GITHUB_WEBHOOK] event=%s delivery=%s",
+                event_type,
+                request.headers.get("X-GitHub-Delivery", "unknown")
+            )
+            
             if event_type != "pull_request":
                 return jsonify({"ok": True, "ignored": True}), 200
 
             # 3. Parse JSON & Check Action
-            data = request.get_json()
+            data = request.get_json(silent=True)
             if not data:
                 return jsonify({"ok": False, "error": "Missing JSON body"}), 400
 
             action = data.get("action", "")
-            allowed_actions = {"opened", "reopened", "synchronize", "ready_for_review"}
-            if action not in allowed_actions:
-                return jsonify({"ok": True, "ignored": True}), 200
+
+            # 🛡️ 啟動智商稅攔截網 (PR Filter)
+            if not should_process_pr(data, action):
+                return jsonify({"ok": True, "ignored": True, "reason": "filtered_by_pr_filter"}), 200
 
             # Extract necessary payload details
             pr_data = data.get("pull_request", {})
@@ -125,6 +138,11 @@ def create_app() -> Flask:
             head_sha = head_data.get("sha", "")
             head_ref = head_data.get("ref", "")
             base_ref = base_data.get("ref", "")
+
+            # ✅ 2. 保護 head_sha：確保 dedup_key 絕對安全
+            if not head_sha:
+                logger.error("[GITHUB_WEBHOOK] Missing head_sha in payload. Aborting task creation.")
+                return jsonify({"ok": False, "error": "missing head sha"}), 400
 
             # Default PR info description
             description = f"Review PR #{pr_number}: {pr_title}"
@@ -160,7 +178,7 @@ def create_app() -> Flask:
                     "created_at": firestore.SERVER_TIMESTAMP
                 })
             except AlreadyExists:
-                # Optionally return existing task_id if we want, but returning ignored is enough
+                logger.info(f"[GITHUB_WEBHOOK] Duplicate webhook received for dedup_key={dedup_key}")
                 return jsonify({"ok": True, "ignored": True, "reason": "duplicate"}), 200
 
             # Store payload_subset in meta_json, and set plan_json to None
@@ -174,6 +192,8 @@ def create_app() -> Flask:
             )
 
             DB.create_task(task)
+            
+            logger.info(f"[GITHUB_WEBHOOK] Successfully created task_id={task_id} for PR #{pr_number}")
 
             return jsonify({
                 "ok": True,
@@ -182,7 +202,7 @@ def create_app() -> Flask:
             }), 200
 
         except Exception as e:
-            logging.error(f"Error processing GitHub Webhook: {e}")
+            logger.error(f"Error processing GitHub Webhook: {e}")
             return jsonify({
                 "ok": False,
                 "error": str(e)

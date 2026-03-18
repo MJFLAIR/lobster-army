@@ -142,28 +142,34 @@ def require_review_schema(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("root must be object")
 
-    _require_keys(data, ["approved", "comments"])
+    _require_keys(data, ["approved"])
 
     approved = data["approved"]
-    comments = data["comments"]
+    comments = data.get("comments", [])
 
     if not isinstance(approved, bool):
         raise ValueError("approved must be boolean")
 
     if not isinstance(comments, list):
-        raise ValueError("comments must be array")
+        raise ValueError("comments must be list")
 
     normalized_comments = []
 
     for c in comments:
+        # Normalize simple string comments to dictionary format
+        if isinstance(c, str):
+            c = {
+                "file": "general",
+                "line": 0,
+                "comment": c
+            }
+
         if not isinstance(c, dict):
             raise ValueError("comment item must be object")
 
-        _require_keys(c, ["file", "line", "comment"])
-
-        file = c["file"]
-        line = c["line"]
-        comment = c["comment"]
+        file = c.get("file", "general")
+        line = c.get("line", 0)
+        comment = c.get("comment", "")
 
         _require_type(file, str, "file")
         _require_type(line, int, "line")

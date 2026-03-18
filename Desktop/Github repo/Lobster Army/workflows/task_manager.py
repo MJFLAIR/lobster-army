@@ -5,6 +5,13 @@ from workflows.agents.code_agent import CodeAgent
 from workflows.agents.review_agent import ReviewAgent
 import logging
 
+def is_review_passed(review_result: dict) -> bool:
+    if review_result.get("approved") is True:
+        return True
+    if review_result.get("status") == "PASS":
+        return True
+    return False
+
 class TaskManager:
     def execute(self, task_id: int) -> None:
         """
@@ -16,16 +23,13 @@ class TaskManager:
 
         logging.info(f"Starting execution for task {task_id}")
         
-        from llm.role_config import get_role_config
-        from llm.factory import create_llm
+        from llm.factory import get_llm_for_role
 
         try:
             # 1. PM Step
             DB.emit_event(task_id, "STEP_START", {"step": "PM"})
             
-            cfg_pm = get_role_config("pm")
-            llm_pm = create_llm(cfg_pm["provider"], cfg_pm["model"])
-            logging.info(f"[PM_LLM_PROVIDER] {cfg_pm['provider']}")
+            llm_pm = get_llm_for_role("pm")
             pm_agent = PMAgent(llm_pm, task_id)
             
             # Use attribute access for Dataclass
@@ -39,6 +43,7 @@ class TaskManager:
             
             current_plan = pm_result.get("plan", {})
             feedback = ""
+            review_result = {}
 
             while cycle < MAX_CYCLES:
                 cycle += 1
@@ -48,9 +53,7 @@ class TaskManager:
                 # Code Step
                 DB.emit_event(task_id, "STEP_START", {"step": "Code", "cycle": cycle})
                 
-                cfg_code = get_role_config("code")
-                llm_code = create_llm(cfg_code["provider"], cfg_code["model"])
-                logging.info(f"[CODE_LLM_PROVIDER] {cfg_code['provider']}")
+                llm_code = get_llm_for_role("code")
                 code_agent = CodeAgent(llm_code, task_id)
                 
                 # In a real scenario, we'd pass feedback from previous review
@@ -61,14 +64,14 @@ class TaskManager:
                 # Review Step
                 DB.emit_event(task_id, "STEP_START", {"step": "Review", "cycle": cycle})
                 
-                cfg_review = get_role_config("review")
-                llm_review = create_llm(cfg_review["provider"], cfg_review["model"])
-                logging.info(f"[REVIEW_LLM_PROVIDER] {cfg_review['provider']}")
+                llm_review = get_llm_for_role("review")
                 review_agent = ReviewAgent(llm_review, task_id)
                 review_result = review_agent.run(code_result)
                 DB.emit_event(task_id, "STEP_DONE", {"step": "Review", "result": review_result})
 
-                if review_result.get("status") == "PASS":
+                logging.info(f"[TASK_REVIEW_STATUS] result={review_result}")
+
+                if is_review_passed(review_result):
                     task_status = "PASS"
                     logging.info(f"Task {task_id} passed review on cycle {cycle}")
                     break
@@ -78,8 +81,7 @@ class TaskManager:
 
             if task_status != "PASS":
                 error_msg = f"Escalation: Task failed after {MAX_CYCLES} cycles."
-                logging.error(error_msg)
-                DB.mark_task_failed(task_id, error_msg)
+                logging.error(f"[TASK_ESCALATION_REASON] Max cycles reached with final review_result={review_result}")
                 raise RuntimeError(error_msg)
 
             # Success path - In Phase 6B this would trigger Merge/Deploy

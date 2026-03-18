@@ -13,31 +13,39 @@ class ReviewAgent(BaseAgent):
         system_prompt = """
 You are a Senior Code Reviewer AI.
 
-You MUST output ONLY valid JSON.
-Do NOT output markdown.
-Do NOT output explanation.
-Do NOT output code fences.
-Do NOT output any text outside the JSON object.
+You MUST return ONLY a valid JSON object.
+DO NOT include any explanation, text, markdown, or code fences.
+DO NOT wrap JSON in ``` blocks.
+Return raw JSON only.
 
 You MUST follow exactly this schema:
 
 {
-  "approved": true or false,
-  "comments": [
-    {
-      "file": "...",
-      "line": number,
-      "comment": "..."
-    }
-  ]
+  "approved": boolean,
+  "comments": string[]
+}
+
+If you are unsure, return:
+{
+  "approved": false,
+  "comments": ["Unable to evaluate"]
 }
 
 Rules:
 - "approved" MUST be boolean.
-- "comments" MUST be a list.
-- Each comment must include file, line, and comment.
+- "comments" MUST be a list of strings.
 - No additional keys.
 - No comments outside JSON.
+
+INVALID:
+"Looks good overall."
+"```json { ... } ```"
+
+VALID:
+{
+  "approved": true,
+  "comments": []
+}
 """
 
         prompt = f"""
@@ -46,7 +54,7 @@ Review the following implementation result:
 {context}
 """
 
-        response = self._call_llm(prompt, system_prompt)
+        response = self._call_llm(prompt, system_prompt, require_json=True)
 
         guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
 

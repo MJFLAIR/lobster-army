@@ -77,14 +77,20 @@ class RealLLMClient(LLMAdapter):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
+        require_json = kwargs.get("require_json", False)
+
+        call_kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": self.max_tokens_guard,
+        }
+        
+        if require_json:
+            call_kwargs["response_format"] = {"type": "json_object"}
+
         try:
-            response = self.openai_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=0.2,
-                max_tokens=self.max_tokens_guard,
-                response_format={"type": "json_object"} if "gpt" in self.model else None
-            )
+            response = self.openai_client.chat.completions.create(**call_kwargs)
             content = response.choices[0].message.content
             usage = response.usage
             total_tokens = usage.total_tokens if usage else 0
@@ -107,15 +113,24 @@ class RealLLMClient(LLMAdapter):
         if not hasattr(self, "_genai_client"):
             raise RuntimeError("google-genai package is not installed. Cannot use Gemini provider.")
         
+        require_json = kwargs.get("require_json", False)
+
         try:
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"System Instruction:\n{system_prompt}\n\nTask:\n{prompt}"
             
-            response = self._genai_client.models.generate_content(
-                model=self.model,
-                contents=full_prompt
-            )
+            call_kwargs = {
+                "model": self.model,
+                "contents": full_prompt
+            }
+            if require_json:
+                from google.genai import types
+                call_kwargs["config"] = types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+
+            response = self._genai_client.models.generate_content(**call_kwargs)
             content = response.text if response else ""
             
             # 💡 直接回傳原始字串，不進行任何萃取或轉檔

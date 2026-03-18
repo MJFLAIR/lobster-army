@@ -142,6 +142,10 @@ class TaskWorker:
                     if author in allowlist_users:
                         logging.info("[PR_GATE_PASS] repo=%s pr=%s action=%s author=%s", repo, pr_number, action, author)
                         
+                        from workflows.task_router import select_pipeline
+                        router_decision = select_pipeline(meta_json)
+                        logging.info("[TASK_ROUTER_DECISION] pipeline=%s", router_decision.get("pipeline", "review_only"))
+                        
                         from workflows.agents.llm_review_gate import run_llm_review
                         review = run_llm_review(str(task_id), meta_json)
                         logging.info(

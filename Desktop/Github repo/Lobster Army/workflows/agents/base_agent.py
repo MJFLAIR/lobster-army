@@ -11,7 +11,7 @@ class BaseAgent:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.cost_tracker = CostTracker(task_id)
 
-    def _call_llm(self, prompt: str, system_prompt: str, max_retries: int = 3) -> Dict[str, Any]:
+    def _call_llm(self, prompt: str, system_prompt: str, max_retries: int = 3, **kwargs) -> Dict[str, Any]:
         last_error = None
         
         # Initial budget check
@@ -20,7 +20,7 @@ class BaseAgent:
         for attempt in range(max_retries):
             self.logger.info(f"Task {self.task_id}: Calling LLM (Attempt {attempt + 1}/{max_retries})...")
             try:
-                response = self.llm.complete(prompt, system_prompt, task_id=self.task_id)
+                response = self.llm.complete(prompt, system_prompt, task_id=self.task_id, **kwargs)
                 
                 # Track cost (and check budget again)
                 usage = response.get("usage", {})
@@ -50,14 +50,9 @@ class BaseAgent:
         pass
 
     def _parse_json(self, content: str) -> Dict[str, Any]:
+        from llm.json_parser import safe_parse_json, JSONParseError
         try:
-            # Simple cleanup for markdown code blocks if present
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
-            
-            return json.loads(content)
-        except json.JSONDecodeError:
+            return safe_parse_json(content)
+        except JSONParseError:
             self.logger.error(f"Failed to parse JSON: {content}")
             raise ValueError("Invalid JSON response from LLM")

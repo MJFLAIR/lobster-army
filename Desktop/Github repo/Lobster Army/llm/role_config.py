@@ -1,23 +1,58 @@
-import os
+import json
+from pathlib import Path
 from typing import Dict
+
+# Resolve project root dynamically
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+CONFIG_PATH = PROJECT_ROOT / "config" / "llm_role_config.json"
+
+# Cache configuration after first load
+_ROLE_CONFIG: Dict[str, dict] | None = None
+
+
+def _load_config() -> Dict[str, dict]:
+    global _ROLE_CONFIG
+
+    if _ROLE_CONFIG is not None:
+        return _ROLE_CONFIG
+
+    if not CONFIG_PATH.exists():
+        raise FileNotFoundError(f"LLM role config not found: {CONFIG_PATH}")
+
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        _ROLE_CONFIG = json.load(f)
+
+    return _ROLE_CONFIG
+
 
 def get_role_config(role: str) -> Dict[str, str]:
     """
-    Reads role-specific LLM configuration from the environment.
-    Fallback to default: provider=openai, model=gpt-4o-mini
-    
-    Env vars used:
-    {ROLE}_LLM_PROVIDER (e.g. PM_LLM_PROVIDER)
-    {ROLE}_LLM_MODEL    (e.g. PM_LLM_MODEL)
+    Return provider and model configuration for a given role.
+
+    Example:
+        get_role_config("pm")
+
+    Returns:
+        {
+            "provider": "...",
+            "model": "..."
+        }
     """
-    prefix = role.upper()
-    provider_key = f"{prefix}_LLM_PROVIDER"
-    model_key = f"{prefix}_LLM_MODEL"
-    
-    provider = os.getenv(provider_key, "openai")
-    model = os.getenv(model_key, "gpt-4o-mini")
-    
-    return {
-        "provider": provider,
-        "model": model
-    }
+
+    config = _load_config()
+
+    role = role.lower()
+
+    role_map = config["roles"]
+    providers = config["providers"]
+
+    if role not in role_map:
+        raise ValueError(f"Unknown LLM role: {role}")
+
+    provider_key = role_map[role]
+
+    if provider_key not in providers:
+        raise ValueError(f"Unknown provider key: {provider_key}")
+
+    return providers[provider_key]

@@ -46,7 +46,7 @@ Task:
 {context.get('description')}
 """
 
-        response = self._call_llm(prompt, system_prompt)
+        response = self._call_llm(prompt, system_prompt, require_json=True)
 
         guard = LLMJSONGuard(allow_root_object=True, allow_root_array=False)
 

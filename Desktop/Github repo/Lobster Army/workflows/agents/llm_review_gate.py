@@ -153,12 +153,9 @@ def run_llm_review(task_id: str, meta_json: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        from llm.role_config import get_role_config
-        from llm.factory import create_llm
+        from llm.factory import get_llm_for_role
         
-        cfg = get_role_config("pr_gate")
-        client = create_llm(cfg["provider"], cfg["model"])
-        logging.info(f"[PR_GATE_LLM_PROVIDER] {cfg['provider']}")
+        client = get_llm_for_role("pr_gate")
 
         # 強化版 Prompt：嚴格規定 JSON 格式，並附上 meta_json 讓它有東西可以看
         prompt = (

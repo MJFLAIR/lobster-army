@@ -1,5 +1,11 @@
-def hello_world():
+def hello_world(name: str = "world") -> str:
     """
-    Return a friendly greeting string.
+    Return a friendly greeting message.
+
+    Args:
+        name: Name to greet
+
+    Returns:
+        Greeting string
     """
-    return "hello world"
+    return f"hello {name}"

@@ -1,5 +1,6 @@
 from workflows.task_manager import TaskManager
 from workflows.storage.db import DB
+from router.task_router import TaskRouter
 
 import logging
 import json
@@ -9,6 +10,11 @@ class TaskWorker:
         task_obj = DB.get_task(task_id)
         if task_obj:
             task = task_obj.__dict__
+
+            task_router = TaskRouter()
+            decision = task_router.route(task)
+            logging.info("[TASK_ROUTER_DECISION]", extra={"decision": decision})
+
             if task.get("source") == "github":
                 meta_json = task.get("meta_json") or {}
                 if not isinstance(meta_json, dict):

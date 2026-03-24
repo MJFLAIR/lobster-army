@@ -1,0 +1,54 @@
+{
+  "incidents": {
+    "spam_test_1": {
+      "incident_hash": "spam_test_1",
+      "last_seen_interval_sec": 0,
+      "priority_score": 0,
+      "priority_level": "P4",
+      "priority_reason": "unclassified"
+    },
+    "hal_test_2": {
+      "incident_hash": "hal_test_2",
+      "last_seen_interval_sec": 0,
+      "priority_score": 0,
+      "priority_level": "P4",
+      "priority_reason": "unclassified"
+    },
+    "scope_test_3": {
+      "incident_hash": "scope_test_3",
+      "last_seen_interval_sec": 0,
+      "priority_score": 0,
+      "priority_level": "P4",
+      "priority_reason": "unclassified"
+    },
+    "false_alarm_4": {
+      "incident_hash": "false_alarm_4",
+      "last_seen_interval_sec": 0,
+      "priority_score": 0,
+      "priority_level": "P4",
+      "priority_reason": "unclassified",
+      "auto_fix_status": "BLOCKED",
+      "auto_fix_reason": "not_p1"
+    },
+    "7b53975018674ccaff2d103abd15deb9": {
+      "count": 2,
+      "first_seen": "2026-03-23T10:41:08.575236+00:00",
+      "last_seen": "2026-03-23T10:41:11.577235+00:00",
+      "last_seen_interval_sec": 3.001999,
+      "github_issue_number": null,
+      "last_synced_count": 0,
+      "status": "open",
+      "count_24h_snapshot": 1,
+      "snapshot_timestamp": 1774262468.575236,
+      "failure_type": "unknown",
+      "pipeline": "unknown",
+      "delta_24h": 1,
+      "trend": "rising",
+      "confidence": "LOW",
+      "severity": "low",
+      "priority_score": 30,
+      "priority_level": "P4",
+      "priority_reason": "high frequency"
+    }
+  }
+}

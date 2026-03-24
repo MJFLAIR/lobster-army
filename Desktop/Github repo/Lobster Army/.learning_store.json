@@ -1,0 +1,32 @@
+{
+  "records": [
+    {
+      "timestamp": "2026-03-23T10:41:08.578442+00:00",
+      "pipeline": "review_only",
+      "stage": 1,
+      "agent": "review",
+      "action": "review",
+      "failure_type": "unknown",
+      "retryable": false,
+      "retry_attempted": false,
+      "retry_count": 0,
+      "outcome": "failed",
+      "error": "'str' object has no attribute 'get'",
+      "execution_mode": "unknown"
+    },
+    {
+      "timestamp": "2026-03-23T10:41:11.578081+00:00",
+      "pipeline": "review_only",
+      "stage": 1,
+      "agent": "review",
+      "action": "review",
+      "failure_type": "unknown",
+      "retryable": false,
+      "retry_attempted": false,
+      "retry_count": 0,
+      "outcome": "failed",
+      "error": "Boom",
+      "execution_mode": "unknown"
+    }
+  ]
+}

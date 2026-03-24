@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-03-22T12:08:29Z",
+  "system_status": "HEALTHY",
+  "total_open_incidents": 2,
+  "high_confidence_count": 0,
+  "p1": 0,
+  "p2": 0,
+  "p3": 0,
+  "p4": 2,
+  "top_incidents": [
+    {
+      "incident_hash": "9b9c31f4990c66df76736c310cbc1dfb",
+      "priority_level": "P4",
+      "priority_score": 10,
+      "severity": "low",
+      "count": 1,
+      "failure_type": "unknown",
+      "pipeline": "unknown",
+      "last_seen": "2026-03-22T12:08:29.950780+00:00",
+      "github_issue_number": null,
+      "delta_24h": 0,
+      "trend": "stable",
+      "confidence": "LOW"
+    },
+    {
+      "incident_hash": "0c871ee99169a10344f6b13e350aad67",
+      "priority_level": "P4",
+      "priority_score": 10,
+      "severity": "low",
+      "count": 1,
+      "failure_type": "unknown",
+      "pipeline": "unknown",
+      "last_seen": "2026-03-22T12:08:29.949349+00:00",
+      "github_issue_number": null,
+      "delta_24h": 0,
+      "trend": "stable",
+      "confidence": "LOW"
+    }
+  ]
+}

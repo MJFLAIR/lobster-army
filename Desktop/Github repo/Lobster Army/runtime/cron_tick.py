@@ -5,14 +5,21 @@ from runtime.task_worker import TaskWorker
 
 def handle_tick():
     try:
+        logging.info("[CRON_TICK_START]")
+        
+        pending_count = DB.count_pending_tasks()
+        logging.info(f"[CRON_PENDING_COUNT] count={pending_count}")
+        
         task = DB.lock_next_pending_task(lock_owner="runtime")
         if not task:
             return jsonify({"ok": True, "picked": 0}), 200
 
         task_id = task["task_id"]
+        logging.info("[CRON_TICK_TASK]", extra={"task_id": task_id})
 
         try:
             # Setting task status, result summary, cost, events, etc is responsibility of TaskManager / Worker workflows 
+            logging.info("[CRON_TICK_EXECUTE]", extra={"task_id": task_id})
             TaskWorker().run_task(task_id)
 
             # Read back state to return

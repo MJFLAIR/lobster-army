@@ -41,6 +41,15 @@ class DB:
         if DB._client is None:
             project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT")
             db_name = os.environ.get("FIRESTORE_DB_NAME", "lobster-main")
+            
+            logging.info("[DB_CONFIG]", extra={
+                "project_id": project_id,
+                "db_name": db_name,
+                "env_google": os.environ.get("GOOGLE_CLOUD_PROJECT"),
+                "env_gcp": os.environ.get("GCP_PROJECT"),
+                "svc_account": os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "ADC/default")
+            })
+            
             DB._client = firestore.Client(project=project_id, database=db_name)
         return DB._client
 
@@ -130,6 +139,12 @@ class DB:
     # Lock Next Pending Task (Atomic)
     # ------------------------------------------------------------------
     
+    @staticmethod
+    def count_pending_tasks() -> int:
+        db = DB.get_client()
+        docs = db.collection("command_queue").where("status", "==", "PENDING").stream()
+        return len(list(docs))
+
     @staticmethod
     def lock_next_pending_task(lock_owner: str) -> Optional[Dict[str, Any]]:
         """

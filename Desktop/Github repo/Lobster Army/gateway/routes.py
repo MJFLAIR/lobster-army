@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 import time
+import logging
+from datetime import datetime
 from google.cloud import firestore
 from gateway.discord_verify import verify_discord_interaction
 from gateway.outbound import post_async_ack
@@ -55,13 +57,27 @@ def register_routes(app: Flask) -> None:
         payload = request.get_json(force=True, silent=True) or {}
         task_id = int(time.time() * 1000)
 
+        pr_data = payload.get("pull_request") or {}
+
         # minimal payload subset
         meta_json = {
             "action": payload.get("action"),
             "repository": payload.get("repository", {}).get("full_name"),
             "pull_request": payload.get("pull_request"),
-            "pr_number": payload.get("pull_request", {}).get("number")
+            "pr_number": pr_data.get("number"),
+            "changed_files": payload.get("changed_files", [])
         }
+
+        # Ensure TaskRouter required metadata fields exist
+        if not isinstance(meta_json["pull_request"], dict):
+            meta_json["pull_request"] = {}
+            
+        pr_meta = meta_json["pull_request"]
+        if not isinstance(pr_meta.get("head"), dict):
+            pr_meta["head"] = {}
+            
+        pr_meta["head"].setdefault("ref", "")
+        pr_meta.setdefault("labels", [])
 
         db_client = DB.get_client()
 
@@ -80,7 +96,12 @@ def register_routes(app: Flask) -> None:
             "task_id": task_id,
             "status": "PENDING",
             "source": "github",
-            "created_at": firestore.SERVER_TIMESTAMP
+            "created_at": datetime.utcnow()
+        })
+
+        logging.info("[WEBHOOK_TASK_CREATED]", extra={
+            "task_id": task_id,
+            "status": "PENDING"
         })
 
         return jsonify({"ok": True, "task_id": task_id})

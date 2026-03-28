@@ -1,0 +1,1 @@
+{"task_id": "1001", "final_status": "SUCCESS", "self_healing_triggered": false, "steps": [{"agent": "PMAgent", "status": "success"}, {"agent": "Feature_Coder", "status": "success"}, {"agent": "Reviewer", "status": "success"}], "tool_actions": [{"tool_name": "write_file", "status": "success"}]}

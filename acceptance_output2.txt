@@ -1,0 +1,42 @@
+\n==================================================
+SCENARIO 1: The Spam Attack (Cooldown)
+==================================================
+\n[Run 1]
+INFO:root:[AUTO_FIX_TRIGGER_POINT_CONFIRMED]
+INFO:root:[AUTO_FIX_CONTEXT_BUILT]
+INFO:root:[AUTO_FIX_PATCH_READY]
+INFO:root:[AUTO_FIX_PATCH_DRYRUN_PASS]
+INFO:root:[AUTO_FIX_PATCH_APPLIED]
+INFO:root:[AUTO_FIX_GIT_BRANCH_CREATED]
+WARNING:root:[AUTO_FIX_VALIDATION_RESULT]
+INFO:root:[AUTO_FIX_PR_PAYLOAD_BUILT]
+INFO:root:[AUTO_FIX_DRAFT_PR_READY]
+\n[Run 2]
+INFO:root:[AUTO_FIX_COOLDOWN_BLOCKED]
+INFO:root:[AUTO_FIX_ABORTED]
+\n==================================================
+SCENARIO 2: The LLM Hallucination (Dry-Run)
+==================================================
+Repo State Before:\n Branches:\n* fix/incident-spam_tes
+  master\nStatus (uncommitted):\nclean
+INFO:root:[AUTO_FIX_TRIGGER_POINT_CONFIRMED]
+INFO:root:[AUTO_FIX_CONTEXT_BUILT]
+INFO:root:[AUTO_FIX_PATCH_READY]
+WARNING:root:[AUTO_FIX_PATCH_DRYRUN_FAIL]
+\nRepo State After:\n Branches:\n* fix/incident-spam_tes
+  master\nStatus (uncommitted):\nclean
+\n==================================================
+SCENARIO 3: The Architecture Rewrite (Scope Lock)
+==================================================
+INFO:root:[AUTO_FIX_TRIGGER_POINT_CONFIRMED]
+INFO:root:[AUTO_FIX_CONTEXT_BUILT]
+WARNING:root:[AUTO_FIX_SCOPE_BLOCKED]
+\n==================================================
+SCENARIO 4: The False Alarm (Trigger Gate)
+==================================================
+INFO:root:[AUTO_FIX_ABORTED]
+\n==================================================
+SCENARIO 5: The Silent Abort (No Side Effects)
+==================================================
+Final Repo State:\n Branches:\n* fix/incident-spam_tes
+  master\nStatus (uncommitted):\nclean
